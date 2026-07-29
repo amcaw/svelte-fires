@@ -25,50 +25,26 @@
 	let showActive = $state(true);
 	let showSmoke = $state(true);
 	let selected = $state(0);
-	let dayIndex = $state(0);
+	let stepIndex = $state(0);
 	let playing = $state(false);
 	let mapRef = $state<{ zoomTo: (rank: number) => void; reset: () => void } | undefined>();
 
 	onMount(async () => {
 		try {
 			[meta, burned] = await loadAll();
-			dayIndex = meta.days - 1;
+			stepIndex = Math.max((meta.activeDates?.length ?? meta.days) - 1, 0);
 		} catch (e) {
 			failure = e instanceof Error ? e.message : String(e);
 		}
 	});
 
-	const dates = $derived(meta ? dateRange(meta.since, meta.days) : []);
 	const smokeDates = $derived(meta?.smoke?.dates ?? []);
 	const activeDates = $derived(meta?.activeDates ?? []);
-
-	const daily = $derived.by(() => {
-		const n = meta?.days ?? 0;
-		const fires = new Array<number>(n).fill(0);
-		const ha = new Array<number>(n).fill(0);
-		for (const feature of burned?.features ?? []) {
-			const d = feature.properties.day;
-			if (d >= 0 && d < n) {
-				fires[d] += 1;
-				ha[d] += feature.properties.ha;
-			}
-		}
-		return { fires, ha };
-	});
-
-	const shown = $derived.by(() => {
-		const { fires, ha } = daily;
-		if (!fires.length) return { fires: 0, ha: 0 };
-		const i = Math.min(Math.max(dayIndex, 0), fires.length - 1);
-		let f = 0;
-		let h = 0;
-		for (let k = 0; k <= i; k++) {
-			f += fires[k];
-			h += ha[k];
-		}
-		return { fires: f, ha: Math.round(h) };
-	});
-
+	const steps = $derived(
+		activeDates.length ? activeDates : meta ? dateRange(meta.since, meta.days) : []
+	);
+	const stepsPerDay = $derived(meta?.smoke?.hours?.length ?? 1);
+	const day = $derived(meta && steps.length ? dayOffset(steps[stepIndex] ?? steps[0], meta.since) : 0);
 
 	const ranking = $derived((meta?.ranking ?? []).filter((r) => r.ha >= 100).slice(0, 10));
 	const top = $derived((meta?.top ?? []).slice(0, 10));
@@ -80,12 +56,10 @@
 			return;
 		}
 		const fire = top.find((f) => f.rank === rank);
-		if (fire && meta) {
-			const d = dayOffset(fire.date, meta.since);
-			if (dayIndex < d) {
-				playing = false;
-				dayIndex = d;
-			}
+		if (fire && meta && day < dayOffset(fire.date, meta.since)) {
+			playing = false;
+			stepIndex = steps.findIndex((s) => s.slice(0, 10) === fire.date.slice(0, 10));
+			if (stepIndex < 0) stepIndex = steps.length - 1;
 		}
 		mapRef?.zoomTo(rank);
 	}
@@ -97,7 +71,7 @@
 		void showSmoke;
 		void smokeDates;
 		void selected;
-		void dayIndex;
+		void stepIndex;
 		void failure;
 		sendHeight();
 	});
@@ -142,10 +116,11 @@
 			{showBurned}
 			{showActive}
 			{showSmoke}
-			day={dayIndex}
+			{day}
+			step={stepIndex}
 		/>
 
-		<Timeline {dates} bind:index={dayIndex} bind:playing fires={shown.fires} ha={shown.ha} />
+		<Timeline {steps} {stepsPerDay} bind:index={stepIndex} bind:playing />
 
 
 		<section class="panels">
@@ -209,7 +184,7 @@
 				<p>
 					<strong>Fumées</strong> — CAMS, prévision d'ensemble européenne (Copernicus&nbsp;/ Météo-France),
 					concentration au sol des particules attribuées aux feux de végétation, en µg/m³ sur une grille de
-					0,1°, un champ par jour à {meta.smoke?.hour}&nbsp;h&nbsp;UTC. Le modèle isole la part issue des feux,
+					0,1°, {meta.smoke?.hours?.length ?? 1}&nbsp;champs par jour. Le modèle isole la part issue des feux,
 					distincte de la pollution urbaine et du sable saharien. Pic sur la période&nbsp;: {fmt(
 						meta.smoke?.peak ?? 0
 					)}&nbsp;µg/m³.

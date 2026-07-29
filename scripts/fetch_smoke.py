@@ -32,7 +32,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="Fetch CAMS Europe wildfire PM10 over Europe, one grid per day.")
     p.add_argument("--since", default="", help="First day (default: meta.json since).")
     p.add_argument("--until", default="", help="Last day (default: meta.json until).")
-    p.add_argument("--hour", type=int, default=12, help="Hour of day, UTC.")
+    p.add_argument("--hours", default="0,4,8,12,16,20", help="Hours of day to fetch, UTC.")
     p.add_argument("--floor", type=float, default=0.1, help="Values below this are written as 0.")
     p.add_argument("--from-file", default="", help="Rebuild from an existing NetCDF, no download.")
     p.add_argument("--keep", default="", help="Keep the downloaded NetCDF at this path.")
@@ -60,7 +60,7 @@ def api_key() -> str:
     sys.exit("no ADS key — set ADS_API_KEY or put one in ~/.cdsapirc")
 
 
-def download(since: dt.date, until: dt.date, hour: int, target: Path) -> None:
+def download(since: dt.date, until: dt.date, hours: list[int], target: Path) -> None:
     client = cdsapi.Client(url=ADS, key=api_key())
     request = {
         "variable": [VARIABLE],
@@ -69,11 +69,11 @@ def download(since: dt.date, until: dt.date, hour: int, target: Path) -> None:
         "date": [f"{since.isoformat()}/{until.isoformat()}"],
         "type": ["forecast"],
         "time": ["00:00"],
-        "leadtime_hour": [str(hour)],
+        "leadtime_hour": [str(h) for h in hours],
         "data_format": "netcdf",
         "area": [NORTH, WEST, SOUTH, EAST],
     }
-    print(f"[cams] {DATASET} {VARIABLE} {since} → {until} at {hour:02d}:00 UTC", flush=True)
+    print(f"[cams] {DATASET} {VARIABLE} {since} → {until}, {len(hours)} pas/jour", flush=True)
     client.retrieve(DATASET, request, str(target))
 
 
@@ -100,7 +100,7 @@ def read_grid(path: Path):
     if values.ndim == 2:
         values = values[None, :, :]
     lon = np.where(lon > 180.0, lon - 360.0, lon)
-    return values, lon, lat, [dt.date(m.year, m.month, m.day) for m in moments]
+    return values, lon, lat, [f"{m:%Y-%m-%d_%H}" for m in moments]
 
 
 def write_day(values: np.ndarray, lon: np.ndarray, lat: np.ndarray, floor: float, path: Path) -> float:
@@ -117,6 +117,14 @@ def write_day(values: np.ndarray, lon: np.ndarray, lat: np.ndarray, floor: float
     clean = np.where(clean < floor, 0.0, clean)
     tenths = np.rint(clean * 10.0).astype(int)
 
+    runs: list[int] = []
+    for value in tenths.ravel():
+        value = int(value)
+        if runs and runs[-2] == value:
+            runs[-1] += 1
+        else:
+            runs.extend((value, 1))
+
     path.write_text(
         json.dumps(
             {
@@ -124,7 +132,7 @@ def write_day(values: np.ndarray, lon: np.ndarray, lat: np.ndarray, floor: float
                 "ny": int(clean.shape[0]),
                 "scale": 10,
                 "bounds": [round(west, 4), round(south, 4), round(east, 4), round(north, 4)],
-                "values": [int(v) for v in tenths.ravel()],
+                "rle": runs,
             },
             separators=(",", ":"),
         )
@@ -136,13 +144,15 @@ def main() -> None:
     args = parse_args()
     since, until = window(args)
 
+    hours = [int(h) for h in args.hours.split(",") if h.strip()]
+
     with tempfile.TemporaryDirectory() as tmp:
         if args.from_file:
             raw = Path(args.from_file)
         else:
             raw = Path(args.keep) if args.keep else Path(tmp) / "cams.nc"
-            download(since, until, args.hour, raw)
-        values, lon, lat, days = read_grid(raw)
+            download(since, until, hours, raw)
+        values, lon, lat, moments = read_grid(raw)
 
     if GRIDS.exists():
         shutil.rmtree(GRIDS)
@@ -150,19 +160,17 @@ def main() -> None:
 
     peak = 0.0
     stamps: list[str] = []
-    for i, day in enumerate(days):
-        stamp = day.isoformat()
+    for i, stamp in enumerate(moments):
         peak = max(peak, write_day(values[i], lon, lat, args.floor, GRIDS / f"{stamp}.json"))
         stamps.append(stamp)
-
-    (GRIDS / "dates.json").write_text(json.dumps(stamps, separators=(",", ":")))
+    stamps.sort()
 
     meta_path = DATA / "meta.json"
     meta = json.loads(meta_path.read_text())
     meta["smoke"] = {
         "variable": VARIABLE,
         "unit": UNIT,
-        "hour": args.hour,
+        "hours": hours,
         "dates": stamps,
         "peak": round(peak, 1),
         "source": "CAMS European air quality forecasts (Copernicus / ECMWF)",
@@ -171,7 +179,7 @@ def main() -> None:
 
     total = sum(f.stat().st_size for f in GRIDS.glob("*.json"))
     print(f"[cams] {len(stamps)} grilles {values.shape[2]}×{values.shape[1]}, pic {peak:.1f} {UNIT}")
-    print(f"[cams] {total / 1e6:.1f} MB au total, {total / max(len(stamps), 1) / 1e3:.0f} kB par jour")
+    print(f"[cams] {total / 1e6:.1f} MB au total, {total / max(len(stamps), 1) / 1e3:.0f} kB par pas")
 
 
 if __name__ == "__main__":

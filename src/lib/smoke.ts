@@ -5,8 +5,22 @@ export type SmokeGrid = {
 	ny: number;
 	scale?: number;
 	bounds: [number, number, number, number];
-	values: number[];
+	values?: number[];
+	rle?: number[];
 };
+
+function expand(grid: SmokeGrid): number[] {
+	if (grid.values) return grid.values;
+	const out = new Array<number>(grid.nx * grid.ny);
+	const runs = grid.rle ?? [];
+	let at = 0;
+	for (let i = 0; i < runs.length; i += 2) {
+		out.fill(runs[i], at, at + runs[i + 1]);
+		at += runs[i + 1];
+	}
+	grid.values = out;
+	return out;
+}
 
 export type Quad = [[number, number], [number, number], [number, number], [number, number]];
 
@@ -75,6 +89,7 @@ export function paint(grid: SmokeGrid, colors: number[][]): HTMLCanvasElement {
 	const alphaStops: [number, number[]][] = ALPHA.map(([v, a]) => [v, [a]]);
 
 	const scale = grid.scale ?? 1;
+	const values = expand(grid);
 	const top = mercY(north);
 	const span = mercY(south) - top;
 	const image = ctx.createImageData(grid.nx, height);
@@ -83,7 +98,7 @@ export function paint(grid: SmokeGrid, colors: number[][]): HTMLCanvasElement {
 		const lat = mercLat(top + ((j + 0.5) / height) * span);
 		const row = Math.min(grid.ny - 1, Math.max(0, Math.floor(((north - lat) / (north - south)) * grid.ny)));
 		for (let i = 0; i < grid.nx; i++) {
-			const value = grid.values[row * grid.nx + i] / scale;
+			const value = values[row * grid.nx + i] / scale;
 			const o = (j * grid.nx + i) * 4;
 			if (value <= 0) {
 				image.data[o + 3] = 0;

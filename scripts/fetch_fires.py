@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import csv
 import datetime as dt
 import io
@@ -45,6 +46,8 @@ def parse_args():
                    help="Drop 1 km cells detected on at least this many days — industrial heat, not wildfire.")
     p.add_argument("--static-spread", type=int, default=2,
                    help="Also drop cells within this many 1 km steps of a permanent source.")
+    p.add_argument("--steps", default="0,4,8,12,16,20", help="Hours of day kept as timeline steps, UTC.")
+    p.add_argument("--window", type=int, default=12, help="Trailing hours of detections shown at each step.")
     return p.parse_args()
 
 
@@ -297,7 +300,12 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
                     continue
                 lon = round(float(row["longitude"]), 3)
                 lat = round(float(row["latitude"]), 3)
-                fingerprint = (lon, lat, date)
+                clock = str(row.get("acq_time", "0")).zfill(4)
+                try:
+                    moment = dt.datetime.strptime(f"{row['acq_date']} {clock}", "%Y-%m-%d %H%M")
+                except Exception:
+                    continue
+                fingerprint = (lon, lat, date, moment.hour)
                 if fingerprint in seen:
                     continue
                 seen.add(fingerprint)
@@ -305,43 +313,55 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
                     frp = round(float(row.get("frp") or 0), 1)
                 except Exception:
                     frp = 0.0
-                per_day[date.isoformat()].append([lon, lat, frp])
+                per_day[date.isoformat()].append([lon, lat, frp, moment])
                 kept += 1
             cursor += dt.timedelta(days=days)
         print(f"  {source}: {kept} détections retenues")
 
-    sources, static = static_cells(per_day, args.static_days, args.static_spread)
+    permanent, static = static_cells(per_day, args.static_days, args.static_spread)
     dropped = 0
     for stamp, points in per_day.items():
         kept = [p for p in points if cell(p[0], p[1]) not in static]
         dropped += len(points) - len(kept)
         per_day[stamp] = kept
 
-    if sources:
-        print(f"  {len(sources)} sites thermiques permanents écartés "
+    if permanent:
+        print(f"  {len(permanent)} sites thermiques permanents écartés "
               f"({dropped:,} détections, ≥{args.static_days} jours sur {span})")
 
     if ACTIVE_DIR.exists():
         shutil.rmtree(ACTIVE_DIR)
     ACTIVE_DIR.mkdir(parents=True)
 
+    steps = [int(h) for h in args.steps.split(",") if h.strip()]
+    window = dt.timedelta(hours=args.window)
+    everything = sorted((p for points in per_day.values() for p in points), key=lambda p: p[3])
+    clock = [p[3] for p in everything]
+
     stamps = []
     for i in range(span):
-        stamp = (since + dt.timedelta(days=i)).isoformat()
-        (ACTIVE_DIR / f"{stamp}.json").write_text(
-            json.dumps({"points": per_day.get(stamp, [])}, separators=(",", ":"))
-        )
-        stamps.append(stamp)
+        day = since + dt.timedelta(days=i)
+        for hour in steps:
+            edge = dt.datetime.combine(day, dt.time(hour))
+            lo = bisect.bisect_right(clock, edge - window)
+            hi = bisect.bisect_right(clock, edge)
+            shown = [[p[0], p[1], p[2]] for p in everything[lo:hi]]
+            stamp = f"{day.isoformat()}_{hour:02d}"
+            (ACTIVE_DIR / f"{stamp}.json").write_text(
+                json.dumps({"points": shown}, separators=(",", ":"))
+            )
+            stamps.append(stamp)
 
     total = sum(len(v) for v in per_day.values())
     weight = sum(f.stat().st_size for f in ACTIVE_DIR.glob("*.json"))
-    print(f"  {total:,} détections sur {span} jours, {weight / 1e6:.1f} MB "
-          f"({weight / max(span, 1) / 1e3:.0f} kB par jour)")
+    print(f"  {total:,} détections sur {span} jours, {len(stamps)} pas de {args.window} h glissantes")
+    print(f"  {weight / 1e6:.1f} MB au total, {weight / max(len(stamps), 1) / 1e3:.0f} kB par pas")
 
     return {
         "activeDates": stamps,
         "activeTotal": total,
-        "staticSites": len(sources),
+        "activeWindow": args.window,
+        "staticSites": len(permanent),
         **prune_snapshot(static),
     }
 
@@ -353,7 +373,7 @@ def cell(lon: float, lat: float) -> tuple[float, float]:
 def static_cells(per_day: dict[str, list[list[float]]], threshold: int, spread: int):
     seen: dict[tuple[float, float], set[str]] = defaultdict(set)
     for stamp, points in per_day.items():
-        for lon, lat, _ in points:
+        for lon, lat, *_ in points:
             seen[cell(lon, lat)].add(stamp)
 
     core = {k for k, days in seen.items() if len(days) >= threshold}

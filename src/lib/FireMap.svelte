@@ -18,9 +18,11 @@
 		showActive: boolean;
 		showSmoke: boolean;
 		day: number;
+		step: number;
 	};
 
-	let { meta, burned, activeDates, smokeDates, showBurned, showActive, showSmoke, day }: Props = $props();
+	let { meta, burned, activeDates, smokeDates, showBurned, showActive, showSmoke, day, step }: Props =
+		$props();
 
 	const BLANK =
 		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -45,6 +47,12 @@
 	let popup: maplibregl.Popup | undefined;
 	let ready = $state(false);
 	let legendOpen = $state(false);
+	let drawer = $state<{ title: string; subtitle: string; value: string; detail: string } | undefined>();
+
+	function closeDrawer() {
+		drawer = undefined;
+		if (map?.getLayer('burned-hover')) map.setFilter('burned-hover', ['==', ['get', 'rank'], -1]);
+	}
 
 	const home = $derived(meta.bounds);
 
@@ -65,17 +73,17 @@
 
 	async function drawActive(m: maplibregl.Map) {
 		const source = m.getSource('active') as maplibregl.GeoJSONSource | undefined;
-		const stamp = activeDates[day];
+		const stamp = activeDates[step];
 		if (!source || !stamp || stamp === loaded) return;
 		const points = await loadActiveDay(stamp);
-		if (activeDates[day] !== stamp) return;
+		if (activeDates[step] !== stamp) return;
 		source.setData(points);
 		loaded = stamp;
 	}
 
 	async function drawSmoke(m: maplibregl.Map) {
 		const source = m.getSource('smoke') as maplibregl.ImageSource | undefined;
-		const stamp = smokeDates[day];
+		const stamp = smokeDates[step];
 		if (!source) return;
 		if (!stamp) {
 			source.updateImage({ url: BLANK, coordinates: HOME });
@@ -85,7 +93,7 @@
 		const token = `${stamp}|${prefersLight()}`;
 		if (token === painted) return;
 		const grid = await loadGrid(stamp);
-		if (!grid || smokeDates[day] !== stamp) return;
+		if (!grid || smokeDates[step] !== stamp) return;
 		const colors = STOPS.map(([, name]) => cssRgb(name, [128, 128, 128]));
 		source.updateImage({ url: paint(grid, colors).toDataURL(), coordinates: quad(grid.bounds) });
 		painted = token;
@@ -274,55 +282,49 @@
 		set('smoke-raster', showSmoke);
 	}
 
-	function tooltip(props: Record<string, unknown>) {
-		const ha = Number(props.ha);
-		return `<div class="tip">
-			<strong>${props.place}</strong>
-			<span class="tip-country">${country(String(props.country))}</span>
-			<span class="tip-ha">${fmt(ha)} hectares</span>
-			<span class="tip-date">détecté le ${longDate(String(props.date))}</span>
-		</div>`;
-	}
-
 	function wireInteraction(m: maplibregl.Map) {
-		const show = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+		const clear = () => {
+			if (m.getLayer('burned-hover')) m.setFilter('burned-hover', ['==', ['get', 'rank'], -1]);
+			drawer = undefined;
+		};
+
+		m.on('click', 'burned-fill', (e) => {
 			const feature = e.features?.[0];
 			if (!feature) return;
-			m.getCanvas().style.cursor = 'pointer';
-			m.setFilter('burned-hover', ['==', ['get', 'rank'], feature.properties.rank]);
-			popup?.setLngLat(e.lngLat).setHTML(tooltip(feature.properties)).addTo(m);
-		};
-		const hide = () => {
-			m.getCanvas().style.cursor = '';
-			if (m.getLayer('burned-hover')) m.setFilter('burned-hover', ['==', ['get', 'rank'], -1]);
-			popup?.remove();
-		};
-		m.on('mousemove', 'burned-fill', show);
-		m.on('click', 'burned-fill', show);
-		m.on('mouseleave', 'burned-fill', hide);
-		m.on('movestart', hide);
+			const p = feature.properties;
+			m.setFilter('burned-hover', ['==', ['get', 'rank'], p.rank]);
+			drawer = {
+				title: String(p.place),
+				subtitle: country(String(p.country)),
+				value: `${fmt(Number(p.ha))} hectares`,
+				detail: `Périmètre brûlé, détecté le ${longDate(String(p.date))}`
+			};
+		});
 
 		m.on('click', 'active-point', (e) => {
 			const feature = e.features?.[0];
 			if (!feature) return;
 			const frp = Number(feature.properties.frp);
-			popup
-				?.setLngLat(e.lngLat)
-				.setHTML(
-					`<div class="tip">
-						<strong>Foyer détecté par satellite</strong>
-						<span class="tip-country">${longDate(String(feature.properties.at))}</span>
-						<span class="tip-ha">${Number.isFinite(frp) ? fmt(frp, 1) : 'n.d.'} MW</span>
-						<span class="tip-date">Puissance radiative (FRP)</span>
-					</div>`
-				)
-				.addTo(m);
+			drawer = {
+				title: 'Foyer détecté par satellite',
+				subtitle: longDate(String(feature.properties.at)),
+				value: Number.isFinite(frp) ? `${fmt(frp, 1)} MW` : 'Puissance inconnue',
+				detail: 'Puissance radiative du feu (FRP)'
+			};
 		});
-		m.on('mouseenter', 'active-point', () => {
-			m.getCanvas().style.cursor = 'pointer';
-		});
-		m.on('mouseleave', 'active-point', () => {
-			m.getCanvas().style.cursor = '';
+
+		for (const layer of ['burned-fill', 'active-point']) {
+			m.on('mouseenter', layer, () => {
+				m.getCanvas().style.cursor = 'pointer';
+			});
+			m.on('mouseleave', layer, () => {
+				m.getCanvas().style.cursor = '';
+			});
+		}
+
+		m.on('click', (e) => {
+			const layers = ['burned-fill', 'active-point'].filter((id) => m.getLayer(id));
+			if (!m.queryRenderedFeatures(e.point, { layers }).length) clear();
 		});
 	}
 
@@ -354,6 +356,7 @@
 
 	$effect(() => {
 		void day;
+		void step;
 		void smokeDates;
 		void activeDates;
 		if (!map || !ready) return;
@@ -456,6 +459,18 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if drawer}
+		<div class="drawer">
+			<div class="drawer-body">
+				<span class="drawer-title">{drawer.title}</span>
+				<span class="drawer-subtitle">{drawer.subtitle}</span>
+				<span class="drawer-value">{drawer.value}</span>
+				<span class="drawer-detail">{drawer.detail}</span>
+			</div>
+			<button class="drawer-close" onclick={closeDrawer} type="button" aria-label="Fermer">×</button>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -491,6 +506,90 @@
 		align-items: flex-start;
 		gap: 8px;
 		max-width: min(320px, calc(100% - 76px));
+	}
+
+	.drawer {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 3;
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+		background: color-mix(in srgb, var(--surface) 94%, transparent);
+		border-top: 1px solid var(--border);
+		backdrop-filter: blur(8px);
+		animation: rise 0.18s ease-out;
+	}
+
+	@keyframes rise {
+		from {
+			transform: translateY(100%);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.drawer {
+			animation: none;
+		}
+	}
+
+	.drawer-body {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.drawer-title {
+		font-size: 0.9rem;
+		font-weight: 700;
+		line-height: 1.2;
+	}
+
+	.drawer-subtitle {
+		font-size: 0.72rem;
+		font-weight: 500;
+		color: var(--text-muted);
+	}
+
+	.drawer-value {
+		margin-top: 6px;
+		font-size: 1.15rem;
+		font-weight: 700;
+		color: var(--accent);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.drawer-detail {
+		font-size: 0.68rem;
+		font-weight: 500;
+		color: var(--text-muted);
+	}
+
+	.drawer-close {
+		flex: none;
+		width: 30px;
+		height: 30px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--border);
+		background: transparent;
+		color: var(--text-secondary);
+		border-radius: 50%;
+		font: 400 20px var(--font);
+		line-height: 1;
+		cursor: pointer;
+		transition: all 0.12s;
+	}
+
+	.drawer-close:hover {
+		border-color: var(--border-strong);
+		color: var(--text);
 	}
 
 	.legend-toggle {

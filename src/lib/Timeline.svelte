@@ -1,20 +1,33 @@
 <script lang="ts">
-	import { fmt, longDate, shortDate } from './data';
+	import { parisStamp, shortDate } from './data';
 
 	type Props = {
-		dates: string[];
+		steps: string[];
+		stepsPerDay: number;
 		index: number;
 		playing: boolean;
-		fires: number;
-		ha: number;
 	};
 
-	let { dates, index = $bindable(), playing = $bindable(), fires, ha }: Props = $props();
+	let { steps, stepsPerDay, index = $bindable(), playing = $bindable() }: Props = $props();
 
 	let timer: ReturnType<typeof setInterval> | null = null;
 
-	const last = $derived(Math.max(dates.length - 1, 0));
+	const last = $derived(Math.max(steps.length - 1, 0));
 
+	const ticks = $derived(
+		steps
+			.map((stamp, i) => ({ stamp, i }))
+			.filter(({ i }) => i % stepsPerDay === 0)
+			.map(({ stamp, i }) => ({
+				day: stamp.slice(0, 10),
+				at: last ? (i / last) * 100 : 0,
+				labelled: (i / stepsPerDay) % 5 === 0
+			}))
+	);
+
+	function label(stamp: string): string {
+		return stamp ? parisStamp(stamp) : '';
+	}
 	function halt() {
 		if (timer) clearInterval(timer);
 		timer = null;
@@ -31,7 +44,7 @@
 		timer = setInterval(() => {
 			if (index >= last) halt();
 			else index += 1;
-		}, 400);
+		}, 220);
 	}
 
 	$effect(() => () => {
@@ -52,17 +65,12 @@
 			</svg>
 		</button>
 
-		<span class="date">{dates.length ? longDate(dates[index]) : ''}</span>
-		<span class="count">
-			{fmt(fires)}&nbsp;incendies déclarés · {fmt(ha)}&nbsp;ha brûlés depuis le début de la période
-		</span>
+		<span class="date">{label(steps[index])}</span>
 	</div>
 
 	<div class="track">
-		<span class="edge">{dates.length ? shortDate(dates[0]) : ''}</span>
 		<input
 			class="slider"
-			style:--steps={Math.max(last, 1)}
 			type="range"
 			min="0"
 			max={last}
@@ -71,7 +79,13 @@
 			oninput={halt}
 			aria-label="Date affichée"
 		/>
-		<span class="edge">{dates.length ? shortDate(dates[last]) : ''}</span>
+		<div class="ruler" aria-hidden="true">
+			{#each ticks as tick (tick.day)}
+				<span class="tick" class:labelled={tick.labelled} style:left="{tick.at}%">
+					{#if tick.labelled}<span class="tick-label">{shortDate(tick.day)}</span>{/if}
+				</span>
+			{/each}
+		</div>
 	</div>
 </div>
 
@@ -79,17 +93,16 @@
 	.timeline {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 8px;
 		background: var(--surface-2);
 		border-radius: 14px;
-		padding: 14px 16px;
+		padding: 14px 16px 10px;
 	}
 
 	.head {
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		flex-wrap: wrap;
 	}
 
 	.play {
@@ -118,34 +131,52 @@
 		font-weight: 700;
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
-		min-width: 9.5em;
-	}
-
-	.count {
-		font-size: 0.72rem;
-		font-weight: 500;
-		color: var(--text-muted);
-		font-variant-numeric: tabular-nums;
 	}
 
 	.track {
-		display: flex;
-		align-items: center;
-		gap: 10px;
+		position: relative;
+		padding: 0 7px 18px;
 	}
 
-	.edge {
-		font-size: 0.66rem;
+	.ruler {
+		position: absolute;
+		left: 7px;
+		right: 7px;
+		top: 14px;
+		height: 16px;
+		pointer-events: none;
+	}
+
+	.tick {
+		position: absolute;
+		top: 0;
+		width: 1px;
+		height: 4px;
+		margin-left: -0.5px;
+		background: var(--border-strong);
+	}
+
+	.tick.labelled {
+		height: 7px;
+		background: var(--text-muted);
+	}
+
+	.tick-label {
+		position: absolute;
+		top: 8px;
+		left: 0;
+		transform: translateX(-50%);
+		font-size: 0.6rem;
 		font-weight: 500;
-		color: var(--text-muted);
 		white-space: nowrap;
+		color: var(--text-muted);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.slider {
-		flex: 1;
-		min-width: 0;
-		height: 10px;
+		display: block;
+		width: 100%;
+		height: 14px;
 		appearance: none;
 		-webkit-appearance: none;
 		background: none;
@@ -154,29 +185,15 @@
 	}
 
 	.slider::-webkit-slider-runnable-track {
-		height: 10px;
+		height: 4px;
 		border-radius: 999px;
-		background:
-			repeating-linear-gradient(
-					90deg,
-					var(--text-muted) 0 1px,
-					transparent 1px calc(100% / var(--steps))
-				)
-				no-repeat center / calc(100% - 15px) 6px,
-			linear-gradient(var(--border), var(--border)) no-repeat center / 100% 4px;
+		background: var(--border);
 	}
 
 	.slider::-moz-range-track {
-		height: 10px;
+		height: 4px;
 		border-radius: 999px;
-		background:
-			repeating-linear-gradient(
-					90deg,
-					var(--text-muted) 0 1px,
-					transparent 1px calc(100% / var(--steps))
-				)
-				no-repeat center / calc(100% - 13px) 6px,
-			linear-gradient(var(--border), var(--border)) no-repeat center / 100% 4px;
+		background: var(--border);
 	}
 
 	.slider::-webkit-slider-thumb {
@@ -184,7 +201,7 @@
 		-webkit-appearance: none;
 		width: 15px;
 		height: 15px;
-		margin-top: -3px;
+		margin-top: -5.5px;
 		border-radius: 50%;
 		background: var(--accent);
 		border: 2px solid var(--bg);
@@ -206,13 +223,8 @@
 	}
 
 	@media (max-width: 640px) {
-		.head {
-			gap: 8px;
-		}
-
 		.date {
 			font-size: 0.86rem;
-			min-width: 0;
 		}
 	}
 </style>

@@ -21,7 +21,7 @@ export type Active = FeatureCollection<Point, ActiveProps>;
 export type SmokeMeta = {
 	variable: string;
 	unit: string;
-	hour: number;
+	hours: number[];
 	dates: string[];
 	peak: number;
 	source: string;
@@ -159,6 +159,23 @@ export function dateRange(since: string, days: number): string[] {
 
 export function dayOffset(iso: string, since: string): number {
 	return Math.round((Date.parse(`${iso.slice(0, 10)}T12:00:00Z`) - Date.parse(`${since}T12:00:00Z`)) / DAY_MS);
+}
+
+export function parisStamp(stamp: string): string {
+	const [day, hour] = stamp.split('_');
+	if (hour === undefined) return shortDate(day);
+	const moment = new Date(`${day}T${hour}:00:00Z`);
+	const date = moment.toLocaleDateString('fr-FR', {
+		day: 'numeric',
+		month: 'short',
+		timeZone: 'Europe/Paris'
+	});
+	const clock = moment.toLocaleTimeString('fr-FR', {
+		hour: '2-digit',
+		minute: '2-digit',
+		timeZone: 'Europe/Paris'
+	});
+	return `${date}, ${clock}`;
 }
 
 export function dayMonth(iso: string): string {
