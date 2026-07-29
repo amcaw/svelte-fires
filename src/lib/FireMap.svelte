@@ -442,7 +442,6 @@
 				<span class="scale">
 					<span>4</span><span>15</span><span>30</span><span>60</span><span>100+</span>
 				</span>
-				<span class="legend-note">Le halo s'intensifie là où les foyers se concentrent.</span>
 			</div>
 			{#if smokeDates.length}
 				<div class="legend-smoke">
@@ -662,12 +661,6 @@
 		color: var(--text-secondary);
 	}
 
-	.legend-note {
-		font-size: 0.6rem;
-		font-weight: 500;
-		line-height: 1.3;
-		color: var(--text-muted);
-	}
 
 	.ramp.frp {
 		background: linear-gradient(
