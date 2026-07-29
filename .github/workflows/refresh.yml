@@ -27,7 +27,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install --quiet cdsapi netCDF4 numpy
+        run: pip install --quiet cdsapi netCDF4 numpy shapely
 
       - name: Fetch burnt areas and active fires
         env:
