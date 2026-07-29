@@ -53,6 +53,7 @@ export type Meta = {
 	smoke?: SmokeMeta;
 	activeDates?: string[];
 	activeTotal?: number;
+	staticSites?: number;
 	built: string;
 };
 

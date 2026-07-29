@@ -26,6 +26,10 @@
 	--burnt-line: #ff7b7b;
 	--burnt-hover: #ffffff;
 
+	--chip-bg: var(--surface);
+	--chip-line: var(--border-strong);
+	--chip-text: var(--text);
+
 	--frp-glow: rgba(255, 204, 0, 0.55);
 	--frp-0: #ffcc00;
 	--frp-1: #ffe08a;
@@ -61,6 +65,10 @@
 		--border: rgba(0, 0, 0, 0.12);
 		--border-strong: rgba(0, 0, 0, 0.2);
 		--divider: rgba(0, 0, 0, 0.07);
+
+		--chip-bg: transparent;
+		--chip-line: var(--accent);
+		--chip-text: var(--accent);
 
 		--accent: #003d60;
 		--accent-contrast: #ffffff;

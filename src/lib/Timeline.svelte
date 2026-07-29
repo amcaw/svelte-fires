@@ -100,14 +100,15 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 50%;
-		border: 2px solid var(--accent);
-		background: transparent;
-		color: var(--accent);
+		border: 2px solid var(--chip-line);
+		background: var(--chip-bg);
+		color: var(--chip-text);
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 
 	.play:hover {
+		border-color: var(--accent);
 		background: var(--accent);
 		color: var(--accent-contrast);
 	}

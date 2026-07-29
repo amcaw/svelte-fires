@@ -164,11 +164,6 @@
 
 		<Timeline {dates} bind:index={dayIndex} bind:playing fires={shown.fires} ha={shown.ha} />
 
-		<p class="timeline-note">
-			Les foyers actifs affichés sont ceux détectés par satellite le jour sélectionné&nbsp;; les surfaces brûlées,
-			elles, sont cumulées depuis le {dayMonth(meta.since)}. Le compteur «&nbsp;foyers actifs&nbsp;» en haut de
-			page porte, lui, sur les {meta.activeHours}&nbsp;dernières heures.
-		</p>
 
 		<section class="panels">
 			<div class="panel">
@@ -223,7 +218,9 @@
 			<p>
 				<strong>Feux actifs</strong> — NASA FIRMS, détections VIIRS (375&nbsp;m) et MODIS (1&nbsp;km) des
 				{meta.activeHours}&nbsp;dernières heures. La chaleur de la carte indique la densité des foyers, pondérée par
-				leur puissance radiative.
+				leur puissance radiative (FRP, en mégawatts). Les satellites repèrent toute anomalie thermique, y compris
+				les hauts fourneaux, raffineries et torchères&nbsp;: {fmt(meta.staticSites ?? 0)}&nbsp;sites détectés au
+				même endroit huit jours ou plus sur la période ont été écartés comme sources industrielles permanentes.
 			</p>
 			{#if smokeDates.length}
 				<p>
@@ -235,6 +232,11 @@
 					)}&nbsp;µg/m³.
 				</p>
 			{/if}
+			<p>
+				Les foyers actifs affichés sont ceux détectés par satellite le jour sélectionné&nbsp;; les surfaces
+				brûlées, elles, sont cumulées depuis le {dayMonth(meta.since)}. Le compteur «&nbsp;foyers actifs&nbsp;»
+				en haut de page porte, lui, sur les {meta.activeHours}&nbsp;dernières heures.
+			</p>
 			<p class="credit">
 				Fond de carte CARTO Positron / OpenStreetMap · Données arrêtées au {longDate(meta.until)} · Mise à jour
 				{meta.built.slice(0, 10).split('-').reverse().join('/')}
@@ -272,14 +274,6 @@
 		color: var(--text-secondary);
 	}
 
-	.timeline-note {
-		margin: -8px 0 0;
-		font-size: 0.7rem;
-		font-weight: 500;
-		line-height: 1.4;
-		text-wrap: pretty;
-		color: var(--text-muted);
-	}
 
 	.loading {
 		margin: 0;
@@ -348,9 +342,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 8px;
-		border: 2px solid var(--accent);
-		background: transparent;
-		color: var(--accent);
+		border: 2px solid var(--chip-line);
+		background: var(--chip-bg);
+		color: var(--chip-text);
 		border-radius: 999px;
 		padding: 6px 18px;
 		font: 600 13px var(--font);
@@ -359,10 +353,13 @@
 	}
 
 	.chip:hover:not(.on) {
+		border-color: var(--accent);
 		background: var(--accent-soft);
+		color: var(--accent);
 	}
 
 	.chip.on {
+		border-color: var(--accent);
 		background: var(--accent);
 		color: var(--accent-contrast);
 	}

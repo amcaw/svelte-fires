@@ -41,6 +41,10 @@ def parse_args():
     p.add_argument("--skip-effis", action="store_true")
     p.add_argument("--skip-firms", action="store_true")
     p.add_argument("--history", action="store_true", help="Also fetch FIRMS day by day over the whole window.")
+    p.add_argument("--static-days", type=int, default=8,
+                   help="Drop 1 km cells detected on at least this many days — industrial heat, not wildfire.")
+    p.add_argument("--static-spread", type=int, default=2,
+                   help="Also drop cells within this many 1 km steps of a permanent source.")
     return p.parse_args()
 
 
@@ -306,6 +310,17 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
             cursor += dt.timedelta(days=days)
         print(f"  {source}: {kept} détections retenues")
 
+    sources, static = static_cells(per_day, args.static_days, args.static_spread)
+    dropped = 0
+    for stamp, points in per_day.items():
+        kept = [p for p in points if cell(p[0], p[1]) not in static]
+        dropped += len(points) - len(kept)
+        per_day[stamp] = kept
+
+    if sources:
+        print(f"  {len(sources)} sites thermiques permanents écartés "
+              f"({dropped:,} détections, ≥{args.static_days} jours sur {span})")
+
     if ACTIVE_DIR.exists():
         shutil.rmtree(ACTIVE_DIR)
     ACTIVE_DIR.mkdir(parents=True)
@@ -323,7 +338,50 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
     print(f"  {total:,} détections sur {span} jours, {weight / 1e6:.1f} MB "
           f"({weight / max(span, 1) / 1e3:.0f} kB par jour)")
 
-    return {"activeDates": stamps, "activeTotal": total}
+    return {
+        "activeDates": stamps,
+        "activeTotal": total,
+        "staticSites": len(sources),
+        **prune_snapshot(static),
+    }
+
+
+def cell(lon: float, lat: float) -> tuple[float, float]:
+    return (round(lon, 2), round(lat, 2))
+
+
+def static_cells(per_day: dict[str, list[list[float]]], threshold: int, spread: int):
+    seen: dict[tuple[float, float], set[str]] = defaultdict(set)
+    for stamp, points in per_day.items():
+        for lon, lat, _ in points:
+            seen[cell(lon, lat)].add(stamp)
+
+    core = {k for k, days in seen.items() if len(days) >= threshold}
+    mask = set()
+    for lon, lat in core:
+        for dx in range(-spread, spread + 1):
+            for dy in range(-spread, spread + 1):
+                mask.add((round(lon + dx / 100, 2), round(lat + dy / 100, 2)))
+    return core, mask
+
+
+def prune_snapshot(static: set[tuple[float, float]]) -> dict:
+    path = DATA / "active.geojson"
+    if not path.exists() or not static:
+        return {}
+    snapshot = json.loads(path.read_text())
+    kept = [
+        f for f in snapshot["features"]
+        if cell(*f["geometry"]["coordinates"]) not in static
+    ]
+    removed = len(snapshot["features"]) - len(kept)
+    snapshot["features"] = kept
+    write("active.geojson", snapshot)
+    print(f"  instantané 48 h nettoyé : {removed} détections industrielles retirées")
+    return {
+        "active": len(kept),
+        "activeFrpMax": max((f["properties"]["frp"] for f in kept), default=0),
+    }
 
 
 def write(name: str, payload) -> Path:

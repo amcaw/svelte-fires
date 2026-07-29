@@ -44,6 +44,7 @@
 	let map: maplibregl.Map | undefined;
 	let popup: maplibregl.Popup | undefined;
 	let ready = $state(false);
+	let legendOpen = $state(false);
 
 	const home = $derived(meta.bounds);
 
@@ -423,7 +424,10 @@
 <div class="map-frame">
 	<div class="map" bind:this={container}></div>
 
-	<div class="overlay">
+	<div class="overlay" class:open={legendOpen}>
+		<button class="legend-toggle" onclick={() => (legendOpen = !legendOpen)} type="button">
+			{legendOpen ? 'Masquer la légende' : 'Légende'}
+		</button>
 		<div class="legend">
 			<div class="legend-row">
 				<span class="swatch burnt"></span>
@@ -448,7 +452,6 @@
 						<span>0</span><span>5</span><span>12</span><span>22</span><span>35</span><span>55</span
 						><span>80&nbsp;µg/m³</span>
 					</span>
-					<span class="legend-hint">Particules issues des feux uniquement, au niveau du sol.</span>
 				</div>
 			{/if}
 		</div>
@@ -488,6 +491,30 @@
 		align-items: flex-start;
 		gap: 8px;
 		max-width: min(320px, calc(100% - 76px));
+	}
+
+	.legend-toggle {
+		display: none;
+		min-height: 30px;
+		align-items: center;
+		border: 2px solid var(--chip-line);
+		background: color-mix(in srgb, var(--surface) 90%, transparent);
+		color: var(--chip-text);
+		border-radius: 999px;
+		padding: 4px 14px;
+		font: 600 12px var(--font);
+		cursor: pointer;
+		backdrop-filter: blur(6px);
+	}
+
+	@media (max-width: 640px) {
+		.legend-toggle {
+			display: inline-flex;
+		}
+
+		.overlay:not(.open) .legend {
+			display: none;
+		}
 	}
 
 	.legend {
@@ -572,14 +599,6 @@
 		font-weight: 500;
 		color: var(--text-muted);
 		font-variant-numeric: tabular-nums;
-	}
-
-	.legend-hint {
-		font-size: 0.6rem;
-		font-weight: 500;
-		line-height: 1.3;
-		text-wrap: pretty;
-		color: var(--text-muted);
 	}
 
 	.swatch.heat {
