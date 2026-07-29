@@ -22,3 +22,7 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 scripts/.venv/
+
+# Exports vidéo
+*.mp4
+*.webm

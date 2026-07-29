@@ -436,16 +436,13 @@
 				<span class="swatch burnt"></span>
 				<span>Surface brûlée depuis le 1<sup>er</sup> juillet</span>
 			</div>
-			<div class="legend-row">
-				<span class="swatch heat"></span>
-				<span>Densité des feux détectés ce jour-là</span>
-			</div>
 			<div class="legend-smoke">
-				<span class="legend-title">Puissance du feu (FRP, MW)</span>
+				<span class="legend-title">Puissance des feux détectés ce jour-là (FRP, MW)</span>
 				<span class="ramp frp"></span>
 				<span class="scale">
 					<span>4</span><span>15</span><span>30</span><span>60</span><span>100+</span>
 				</span>
+				<span class="legend-note">Le halo s'intensifie là où les foyers se concentrent.</span>
 			</div>
 			{#if smokeDates.length}
 				<div class="legend-smoke">
@@ -665,6 +662,13 @@
 		color: var(--text-secondary);
 	}
 
+	.legend-note {
+		font-size: 0.6rem;
+		font-weight: 500;
+		line-height: 1.3;
+		color: var(--text-muted);
+	}
+
 	.ramp.frp {
 		background: linear-gradient(
 			90deg,
@@ -700,9 +704,6 @@
 		font-variant-numeric: tabular-nums;
 	}
 
-	.swatch.heat {
-		background: linear-gradient(90deg, var(--frp-0), var(--frp-2), var(--frp-3), var(--frp-4), var(--frp-5));
-	}
 
 	:global(.maplibregl-popup-content) {
 		background: var(--surface);
