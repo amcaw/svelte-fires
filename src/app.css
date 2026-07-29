@@ -1,0 +1,118 @@
+:root {
+	--bg: #001324;
+	--surface: #0a2a40;
+	--surface-2: rgba(255, 255, 255, 0.05);
+	--surface-hover: rgba(255, 255, 255, 0.09);
+
+	--text: #f0f0f1;
+	--text-secondary: rgba(240, 240, 241, 0.72);
+	--text-muted: rgba(240, 240, 241, 0.5);
+
+	--border: rgba(255, 255, 255, 0.14);
+	--border-strong: rgba(255, 255, 255, 0.24);
+	--divider: rgba(255, 255, 255, 0.08);
+
+	--accent: #4a90e2;
+	--accent-contrast: #ffffff;
+	--accent-soft: rgba(74, 144, 226, 0.16);
+	--accent-shadow: rgba(74, 144, 226, 0.35);
+
+	--positive: #4ecb71;
+	--negative: #ff6b6b;
+	--positive-soft: rgba(78, 203, 113, 0.18);
+	--negative-soft: rgba(255, 107, 107, 0.18);
+
+	--burnt: #d92b2b;
+	--burnt-line: #ff7b7b;
+	--burnt-hover: #ffffff;
+
+	--heat-0: rgba(120, 53, 15, 0);
+	--heat-1: #78350f;
+	--heat-2: #b45309;
+	--heat-3: #f59e0b;
+	--heat-4: #fde047;
+	--heat-5: #fffbeb;
+	--active-dot: #ffd166;
+
+	--smoke-0: #4c4470;
+	--smoke-1: #675a99;
+	--smoke-2: #8574c4;
+	--smoke-3: #a78bfa;
+	--smoke-4: #c4a9ff;
+	--smoke-5: #ded0ff;
+	--smoke-6: #f4edff;
+
+	--map-frame: rgba(255, 255, 255, 0.12);
+
+	--font: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--bg: #f7f8fb;
+		--surface: #ffffff;
+		--surface-2: rgba(0, 0, 0, 0.03);
+		--surface-hover: rgba(0, 0, 0, 0.05);
+
+		--text: #2e3238;
+		--text-secondary: rgba(46, 50, 56, 0.72);
+		--text-muted: rgba(46, 50, 56, 0.5);
+
+		--border: rgba(0, 0, 0, 0.12);
+		--border-strong: rgba(0, 0, 0, 0.2);
+		--divider: rgba(0, 0, 0, 0.07);
+
+		--accent: #003d60;
+		--accent-contrast: #ffffff;
+		--accent-soft: rgba(0, 61, 96, 0.1);
+		--accent-shadow: rgba(0, 61, 96, 0.25);
+
+		--positive: #1a7a3c;
+		--negative: #c0392b;
+
+		--burnt: #7a2a10;
+		--burnt-line: #401306;
+		--burnt-hover: #000000;
+
+		--heat-0: rgba(255, 248, 204, 0);
+		--heat-1: #fff8cc;
+		--heat-2: #fde047;
+		--heat-3: #fb923c;
+		--heat-4: #ef4444;
+		--heat-5: #b91c1c;
+		--active-dot: #dc2626;
+
+		--smoke-0: #ece9f5;
+		--smoke-1: #cfc6e8;
+		--smoke-2: #ab9bd6;
+		--smoke-3: #8b72c4;
+		--smoke-4: #6b4bb0;
+		--smoke-5: #4b2d90;
+		--smoke-6: #2e1663;
+
+		--map-frame: rgba(0, 0, 0, 0.1);
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	font-family: var(--font);
+	background-color: var(--bg);
+	color: var(--text);
+	-webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea,
+svg text {
+	font-family: var(--font);
+}
