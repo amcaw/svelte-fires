@@ -379,7 +379,7 @@
 	}
 
 	.dot.heat {
-		background: linear-gradient(135deg, var(--heat-2), var(--heat-4));
+		background: linear-gradient(135deg, var(--frp-0), var(--frp-4));
 	}
 
 	.dot.smoke {

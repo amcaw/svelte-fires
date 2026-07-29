@@ -165,25 +165,27 @@
 						600,
 						1
 					],
-					'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 3, 0.5, 6, 1.1, 10, 2.2],
-					'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 3, 5, 6, 12, 10, 30],
-					'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 3, 0.8, 7, 0.85, 10, 0.2],
+					'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 4, 1, 13, 2],
+					'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 7, 14, 10, 28, 13, 48],
+					'heatmap-opacity': 0.7,
 					'heatmap-color': [
 						'interpolate',
 						['linear'],
 						['heatmap-density'],
 						0,
-						cssColor('--heat-0', 'rgba(0, 0, 0, 0)'),
-						0.22,
-						cssColor('--heat-1'),
-						0.42,
-						cssColor('--heat-2'),
-						0.64,
-						cssColor('--heat-3'),
-						0.83,
-						cssColor('--heat-4'),
+						'rgba(0, 0, 0, 0)',
+						0.15,
+						cssColor('--frp-glow', 'rgba(255, 204, 0, 0.55)'),
+						0.35,
+						cssColor('--frp-0'),
+						0.55,
+						cssColor('--frp-2'),
+						0.75,
+						cssColor('--frp-3'),
+						0.9,
+						cssColor('--frp-4'),
 						1,
-						cssColor('--heat-5')
+						cssColor('--frp-5')
 					]
 				}
 			},
@@ -581,7 +583,7 @@
 	}
 
 	.swatch.heat {
-		background: linear-gradient(90deg, var(--heat-1), var(--heat-2), var(--heat-3), var(--heat-4), var(--heat-5));
+		background: linear-gradient(90deg, var(--frp-0), var(--frp-2), var(--frp-3), var(--frp-4), var(--frp-5));
 	}
 
 	:global(.maplibregl-popup-content) {

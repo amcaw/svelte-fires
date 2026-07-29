@@ -26,14 +26,8 @@
 	--burnt-line: #ff7b7b;
 	--burnt-hover: #ffffff;
 
-	--heat-0: rgba(120, 53, 15, 0);
-	--heat-1: #78350f;
-	--heat-2: #b45309;
-	--heat-3: #f59e0b;
-	--heat-4: #fde047;
-	--heat-5: #fffbeb;
-	--active-dot: #ffd166;
-
+	--frp-glow: rgba(255, 204, 0, 0.55);
+	--frp-0: #ffcc00;
 	--frp-1: #ffe08a;
 	--frp-2: #ff9900;
 	--frp-3: #ff6600;
@@ -79,14 +73,6 @@
 		--burnt: #7a2a10;
 		--burnt-line: #401306;
 		--burnt-hover: #000000;
-
-		--heat-0: rgba(255, 248, 204, 0);
-		--heat-1: #fff8cc;
-		--heat-2: #fde047;
-		--heat-3: #fb923c;
-		--heat-4: #ef4444;
-		--heat-5: #b91c1c;
-		--active-dot: #dc2626;
 
 		--smoke-0: #ece9f5;
 		--smoke-1: #cfc6e8;
