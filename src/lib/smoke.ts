@@ -75,40 +75,75 @@ function ramp(stops: [number, number[]][], value: number): number[] {
 const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
 const mercLat = (y: number) => ((2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180) / Math.PI;
 
-export function paint(grid: SmokeGrid, colors: number[][]): HTMLCanvasElement {
+const LUT_STEPS = 512;
+const LUT_MAX = 120;
+
+function lookup(colors: number[][]): Uint8ClampedArray {
+	const table = new Uint8ClampedArray(LUT_STEPS * 4);
+	const colorStops: [number, number[]][] = STOPS.map(([v], i) => [v, colors[i]]);
+	const alphaStops: [number, number[]][] = ALPHA.map(([v, a]) => [v, [a]]);
+	for (let i = 0; i < LUT_STEPS; i++) {
+		const value = (i / (LUT_STEPS - 1)) * LUT_MAX;
+		const [r, g, b] = ramp(colorStops, value);
+		table[i * 4] = r;
+		table[i * 4 + 1] = g;
+		table[i * 4 + 2] = b;
+		table[i * 4 + 3] = ramp(alphaStops, value)[0];
+	}
+	return table;
+}
+
+export function paint(grid: SmokeGrid, colors: number[][], upscale = 2): HTMLCanvasElement {
 	const [, south, , north] = grid.bounds;
-	const height = grid.ny * 2;
+	const width = grid.nx * upscale;
+	const height = grid.ny * 2 * upscale;
 
 	const canvas = document.createElement('canvas');
-	canvas.width = grid.nx;
+	canvas.width = width;
 	canvas.height = height;
 	const ctx = canvas.getContext('2d');
 	if (!ctx) return canvas;
 
-	const colorStops: [number, number[]][] = STOPS.map(([v], i) => [v, colors[i]]);
-	const alphaStops: [number, number[]][] = ALPHA.map(([v, a]) => [v, [a]]);
-
 	const scale = grid.scale ?? 1;
 	const values = expand(grid);
+	const table = lookup(colors);
 	const top = mercY(north);
 	const span = mercY(south) - top;
-	const image = ctx.createImageData(grid.nx, height);
+	const image = ctx.createImageData(width, height);
+	const data = image.data;
+	const { nx, ny } = grid;
+	const last = LUT_STEPS - 1;
 
 	for (let j = 0; j < height; j++) {
 		const lat = mercLat(top + ((j + 0.5) / height) * span);
-		const row = Math.min(grid.ny - 1, Math.max(0, Math.floor(((north - lat) / (north - south)) * grid.ny)));
-		for (let i = 0; i < grid.nx; i++) {
-			const value = values[row * grid.nx + i] / scale;
-			const o = (j * grid.nx + i) * 4;
+		// position fractionnaire dans la grille source, centres de cellules
+		const fy = Math.min(ny - 1, Math.max(0, ((north - lat) / (north - south)) * ny - 0.5));
+		const y0 = Math.floor(fy);
+		const y1 = Math.min(ny - 1, y0 + 1);
+		const wy = fy - y0;
+
+		for (let i = 0; i < width; i++) {
+			const fx = Math.min(nx - 1, Math.max(0, ((i + 0.5) / upscale) - 0.5));
+			const x0 = Math.floor(fx);
+			const x1 = Math.min(nx - 1, x0 + 1);
+			const wx = fx - x0;
+
+			const a = values[y0 * nx + x0];
+			const b = values[y0 * nx + x1];
+			const c = values[y1 * nx + x0];
+			const d = values[y1 * nx + x1];
+			const value = (a + (b - a) * wx + (c + (d - c) * wx - (a + (b - a) * wx)) * wy) / scale;
+
+			const o = (j * width + i) * 4;
 			if (value <= 0) {
-				image.data[o + 3] = 0;
+				data[o + 3] = 0;
 				continue;
 			}
-			const [r, g, b] = ramp(colorStops, value);
-			image.data[o] = r;
-			image.data[o + 1] = g;
-			image.data[o + 2] = b;
-			image.data[o + 3] = ramp(alphaStops, value)[0];
+			const k = Math.min(last, (value / LUT_MAX) * last) << 2;
+			data[o] = table[k];
+			data[o + 1] = table[k + 1];
+			data[o + 2] = table[k + 2];
+			data[o + 3] = table[k + 3];
 		}
 	}
 
