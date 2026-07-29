@@ -141,7 +141,7 @@
 				<span class="dot burnt"></span>Surfaces brûlées
 			</button>
 			<button class="chip" class:on={showActive} onclick={() => (showActive = !showActive)} type="button">
-				<span class="dot heat"></span>Feux actifs ({meta.activeHours}&nbsp;h)
+				<span class="dot heat"></span>Feux actifs
 			</button>
 			{#if smokeDates.length}
 				<button class="chip" class:on={showSmoke} onclick={() => (showSmoke = !showSmoke)} type="button">

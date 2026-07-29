@@ -153,14 +153,16 @@
 					'heatmap-weight': [
 						'interpolate',
 						['linear'],
-						['get', 'frp'],
-						0,
-						0.08,
+						['coalesce', ['get', 'frp'], 0],
+						4,
+						0.15,
+						8,
+						0.3,
 						30,
-						0.4,
+						0.6,
 						150,
-						0.8,
-						400,
+						0.85,
+						600,
 						1
 					],
 					'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 3, 0.5, 6, 1.1, 10, 2.2],
@@ -234,7 +236,21 @@
 				minzoom: 7,
 				paint: {
 					'circle-radius': ['interpolate', ['linear'], ['zoom'], 7, 1.8, 12, 4.5],
-					'circle-color': cssColor('--active-dot'),
+					'circle-color': [
+						'interpolate',
+						['linear'],
+						['coalesce', ['get', 'frp'], 0],
+						4,
+						cssColor('--frp-1'),
+						15,
+						cssColor('--frp-2'),
+						30,
+						cssColor('--frp-3'),
+						60,
+						cssColor('--frp-4'),
+						100,
+						cssColor('--frp-5')
+					],
 					'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0, 9.5, 0.9],
 					'circle-stroke-width': 0.5,
 					'circle-stroke-color': 'rgba(0, 0, 0, 0.35)'
@@ -282,6 +298,29 @@
 		m.on('click', 'burned-fill', show);
 		m.on('mouseleave', 'burned-fill', hide);
 		m.on('movestart', hide);
+
+		m.on('click', 'active-point', (e) => {
+			const feature = e.features?.[0];
+			if (!feature) return;
+			const frp = Number(feature.properties.frp);
+			popup
+				?.setLngLat(e.lngLat)
+				.setHTML(
+					`<div class="tip">
+						<strong>Foyer détecté par satellite</strong>
+						<span class="tip-country">${longDate(String(feature.properties.at))}</span>
+						<span class="tip-ha">${Number.isFinite(frp) ? fmt(frp, 1) : 'n.d.'} MW</span>
+						<span class="tip-date">Puissance radiative (FRP)</span>
+					</div>`
+				)
+				.addTo(m);
+		});
+		m.on('mouseenter', 'active-point', () => {
+			m.getCanvas().style.cursor = 'pointer';
+		});
+		m.on('mouseleave', 'active-point', () => {
+			m.getCanvas().style.cursor = '';
+		});
 	}
 
 	function collapseAttribution() {
@@ -332,6 +371,12 @@
 			maxBounds: LIMIT,
 			maxZoom: 13,
 			attributionControl: false,
+			cooperativeGestures: true,
+			locale: {
+				'CooperativeGesturesHandler.WindowsHelpText': 'Utilisez Ctrl + molette pour zoomer',
+				'CooperativeGesturesHandler.MacHelpText': 'Utilisez ⌘ + molette pour zoomer',
+				'CooperativeGesturesHandler.MobileHelpText': 'Utilisez deux doigts pour déplacer la carte'
+			},
 			canvasContextAttributes: { antialias: true }
 		});
 
@@ -384,7 +429,14 @@
 			</div>
 			<div class="legend-row">
 				<span class="swatch heat"></span>
-				<span>Densité des feux actifs ({meta.activeHours}&nbsp;dernières heures)</span>
+				<span>Densité des feux détectés ce jour-là</span>
+			</div>
+			<div class="legend-smoke">
+				<span class="legend-title">Puissance du feu (FRP, MW)</span>
+				<span class="ramp frp"></span>
+				<span class="scale">
+					<span>4</span><span>15</span><span>30</span><span>60</span><span>100+</span>
+				</span>
 			</div>
 			{#if smokeDates.length}
 				<div class="legend-smoke">
@@ -483,6 +535,17 @@
 		font-weight: 500;
 		line-height: 1.25;
 		color: var(--text-secondary);
+	}
+
+	.ramp.frp {
+		background: linear-gradient(
+			90deg,
+			var(--frp-1),
+			var(--frp-2),
+			var(--frp-3),
+			var(--frp-4),
+			var(--frp-5)
+		);
 	}
 
 	.ramp {

@@ -13,7 +13,7 @@
 	--divider: rgba(255, 255, 255, 0.08);
 
 	--accent: #4a90e2;
-	--accent-contrast: #ffffff;
+	--accent-contrast: #00182b;
 	--accent-soft: rgba(74, 144, 226, 0.16);
 	--accent-shadow: rgba(74, 144, 226, 0.35);
 
@@ -33,6 +33,12 @@
 	--heat-4: #fde047;
 	--heat-5: #fffbeb;
 	--active-dot: #ffd166;
+
+	--frp-1: #ffe08a;
+	--frp-2: #ff9900;
+	--frp-3: #ff6600;
+	--frp-4: #ff3300;
+	--frp-5: #cc0000;
 
 	--smoke-0: #4c4470;
 	--smoke-1: #675a99;
