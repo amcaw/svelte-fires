@@ -106,10 +106,11 @@
 <div class="widget">
 	<header>
 		{#if meta}
-			<p class="standfirst">
-				Surfaces brûlées du {dayMonth(meta.since)} au {dayMonth(meta.until)}&nbsp;{meta.until.slice(0, 4)} et
-				foyers actifs détectés par satellite au cours des {meta.activeHours}&nbsp;dernières heures.
-			</p>
+			<h1>
+				Surfaces brûlées et foyers actifs détectés par satellite du {dayMonth(meta.since)} au {dayMonth(
+					meta.until
+				)}&nbsp;{meta.until.slice(0, 4)} en Europe
+			</h1>
 		{/if}
 	</header>
 
@@ -118,24 +119,6 @@
 	{:else if !meta || !burned}
 		<p class="loading">Chargement des données satellite…</p>
 	{:else}
-		<section class="stats">
-			<div class="card stat">
-				<span class="value">{fmt(meta.totalHa)}</span>
-				<span class="label">hectares brûlés</span>
-				<span class="hint">soit {fmt(Math.round(meta.totalHa / 100))} km²</span>
-			</div>
-			<div class="card stat">
-				<span class="value">{fmt(meta.fires)}</span>
-				<span class="label">incendies cartographiés</span>
-				<span class="hint">en {meta.days} jours</span>
-			</div>
-			<div class="card stat">
-				<span class="value">{fmt(meta.active)}</span>
-				<span class="label">foyers actifs</span>
-				<span class="hint">dernières {meta.activeHours} h</span>
-			</div>
-		</section>
-
 		<div class="controls">
 			<button class="chip" class:on={showBurned} onclick={() => (showBurned = !showBurned)} type="button">
 				<span class="dot burnt"></span>Surfaces brûlées
@@ -216,8 +199,8 @@
 				derniers jours sont provisoires et généralement revus à la hausse.
 			</p>
 			<p>
-				<strong>Feux actifs</strong> — NASA FIRMS, détections VIIRS (375&nbsp;m) et MODIS (1&nbsp;km) des
-				{meta.activeHours}&nbsp;dernières heures. La chaleur de la carte indique la densité des foyers, pondérée par
+				<strong>Feux actifs</strong> — NASA FIRMS, détections VIIRS (375&nbsp;m) et MODIS (1&nbsp;km), affichées
+				jour par jour. La chaleur de la carte indique la densité des foyers, pondérée par
 				leur puissance radiative (FRP, en mégawatts). Les satellites repèrent toute anomalie thermique, y compris
 				les hauts fourneaux, raffineries et torchères&nbsp;: {fmt(meta.staticSites ?? 0)}&nbsp;sites détectés au
 				même endroit huit jours ou plus sur la période ont été écartés comme sources industrielles permanentes.
@@ -234,8 +217,7 @@
 			{/if}
 			<p>
 				Les foyers actifs affichés sont ceux détectés par satellite le jour sélectionné&nbsp;; les surfaces
-				brûlées, elles, sont cumulées depuis le {dayMonth(meta.since)}. Le compteur «&nbsp;foyers actifs&nbsp;»
-				en haut de page porte, lui, sur les {meta.activeHours}&nbsp;dernières heures.
+				brûlées, elles, sont cumulées depuis le {dayMonth(meta.since)}.
 			</p>
 			<p class="credit">
 				Fond de carte CARTO Positron / OpenStreetMap · Données arrêtées au {longDate(meta.until)} · Mise à jour
@@ -265,13 +247,13 @@
 		gap: 6px;
 	}
 
-	.standfirst {
+	h1 {
 		margin: 0;
-		font-size: 0.88rem;
-		font-weight: 500;
-		line-height: 1.5;
+		font-size: clamp(1.15rem, 3vw, 1.7rem);
+		font-weight: 700;
+		line-height: 1.25;
 		text-wrap: pretty;
-		color: var(--text-secondary);
+		color: var(--text);
 	}
 
 
@@ -291,44 +273,6 @@
 		border: 1px solid var(--warn-border, #fde68a);
 		border-radius: 8px;
 		padding: 7px 11px;
-	}
-
-	.stats {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-		gap: 12px;
-	}
-
-	.card {
-		background: var(--surface-2);
-		border-radius: 18px;
-		padding: 20px;
-	}
-
-	.stat {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.value {
-		font-size: clamp(1.7rem, 5.5vw, 2.4rem);
-		font-weight: 700;
-		line-height: 1;
-		color: var(--accent);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.label {
-		margin-top: 6px;
-		font-size: 0.82rem;
-		font-weight: 600;
-	}
-
-	.hint {
-		font-size: 0.7rem;
-		font-weight: 500;
-		color: var(--text-muted);
 	}
 
 	.controls {
