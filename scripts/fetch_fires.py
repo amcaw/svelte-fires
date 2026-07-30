@@ -338,11 +338,18 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
     everything = sorted((p for points in per_day.values() for p in points), key=lambda p: p[3])
     clock = [p[3] for p in everything]
 
+    now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     stamps = []
+    skipped = 0
     for i in range(span):
         day = since + dt.timedelta(days=i)
         for hour in steps:
             edge = dt.datetime.combine(day, dt.time(hour))
+            # un pas ne vaut que si sa fenêtre est révolue, sinon on annoncerait
+            # zéro foyer pour des heures qui n'ont pas encore eu lieu
+            if edge > now:
+                skipped += 1
+                continue
             lo = bisect.bisect_right(clock, edge - window)
             hi = bisect.bisect_right(clock, edge)
             shown = [[p[0], p[1], p[2]] for p in everything[lo:hi]]
@@ -354,6 +361,8 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
 
     total = sum(len(v) for v in per_day.values())
     weight = sum(f.stat().st_size for f in ACTIVE_DIR.glob("*.json"))
+    if skipped:
+        print(f"  {skipped} pas à venir écartés (données arrêtées à {now:%Y-%m-%d %H:%M} UTC)")
     print(f"  {total:,} détections sur {span} jours, {len(stamps)} pas de {args.window} h glissantes")
     print(f"  {weight / 1e6:.1f} MB au total, {weight / max(len(stamps), 1) / 1e3:.0f} kB par pas")
 

@@ -158,12 +158,25 @@ def main() -> None:
         shutil.rmtree(GRIDS)
     GRIDS.mkdir(parents=True)
 
+    # on s'aligne sur les pas des feux actifs : eux seuls savent jusqu'où la
+    # donnée observée va. Sinon on publierait des prévisions CAMS pour des heures
+    # à venir, au-dessus d'une carte de foyers vide.
+    allowed = set(json.loads((DATA / "meta.json").read_text()).get("activeDates") or [])
+    if not allowed:
+        cutoff = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+        allowed = {s for s in moments if dt.datetime.strptime(s, "%Y-%m-%d_%H") <= cutoff}
+
     peak = 0.0
     stamps: list[str] = []
     for i, stamp in enumerate(moments):
+        if stamp not in allowed:
+            continue
         peak = max(peak, write_day(values[i], lon, lat, args.floor, GRIDS / f"{stamp}.json"))
         stamps.append(stamp)
     stamps.sort()
+    dropped = len(moments) - len(stamps)
+    if dropped:
+        print(f"[cams] {dropped} pas écartés, hors de la fenêtre observée")
 
     meta_path = DATA / "meta.json"
     meta = json.loads(meta_path.read_text())
