@@ -15,14 +15,16 @@
 	const last = $derived(Math.max(steps.length - 1, 0));
 
 	const ticks = $derived(
-		steps
-			.map((stamp, i) => ({ stamp, i }))
-			.filter(({ i }) => i % stepsPerDay === 0)
-			.map(({ stamp, i }) => ({
+		steps.map((stamp, i) => {
+			const opensDay = i % stepsPerDay === 0;
+			return {
+				stamp,
 				day: stamp.slice(0, 10),
 				at: last ? (i / last) * 100 : 0,
-				labelled: (i / stepsPerDay) % 5 === 0
-			}))
+				major: opensDay,
+				labelled: opensDay && (i / stepsPerDay) % 5 === 0
+			};
+		})
 	);
 
 	function label(stamp: string): string {
@@ -80,8 +82,13 @@
 			aria-label="Date affichée"
 		/>
 		<div class="ruler" aria-hidden="true">
-			{#each ticks as tick (tick.day)}
-				<span class="tick" class:labelled={tick.labelled} style:left="{tick.at}%">
+			{#each ticks as tick (tick.stamp)}
+				<span
+					class="tick"
+					class:major={tick.major}
+					class:labelled={tick.labelled}
+					style:left="{tick.at}%"
+				>
 					{#if tick.labelled}<span class="tick-label">{shortDate(tick.day)}</span>{/if}
 				</span>
 			{/each}
@@ -151,13 +158,18 @@
 		position: absolute;
 		top: 0;
 		width: 1px;
-		height: 4px;
+		height: 3px;
 		margin-left: -0.5px;
+		background: var(--divider);
+	}
+
+	.tick.major {
+		height: 6px;
 		background: var(--border-strong);
 	}
 
 	.tick.labelled {
-		height: 7px;
+		height: 8px;
 		background: var(--text-muted);
 	}
 
