@@ -22,6 +22,7 @@ GRIDS = DATA / "smoke"
 ADS = "https://ads.atmosphere.copernicus.eu/api"
 DATASET = "cams-europe-air-quality-forecasts"
 VARIABLE = "pm10_wildfires"
+CAMS_RETREAT = 2
 UNIT = "µg/m³"
 
 WEST, SOUTH, EAST, NORTH = -12.0, 34.0, 34.0, 62.0
@@ -42,7 +43,8 @@ def parse_args():
 def window(args) -> tuple[dt.date, dt.date]:
     meta = json.loads((DATA / "meta.json").read_text())
     since = dt.date.fromisoformat(args.since or meta["since"])
-    until = dt.date.fromisoformat(args.until or meta["until"])
+    steps = meta.get("activeDates") or []
+    until = dt.date.fromisoformat(args.until or (steps[-1][:10] if steps else meta["until"]))
     if until < since:
         sys.exit(f"until ({until}) is before since ({since})")
     return since, until
@@ -151,7 +153,15 @@ def main() -> None:
             raw = Path(args.from_file)
         else:
             raw = Path(args.keep) if args.keep else Path(tmp) / "cams.nc"
-            download(since, until, hours, raw)
+            for retreat in range(CAMS_RETREAT + 1):
+                try:
+                    download(since, until, hours, raw)
+                    break
+                except Exception as e:
+                    if retreat == CAMS_RETREAT or until <= since:
+                        raise
+                    print(f"[cams] {until} indisponible ({e}) — on recule d'un jour", flush=True)
+                    until -= dt.timedelta(days=1)
         values, lon, lat, moments = read_grid(raw)
 
     if GRIDS.exists():
