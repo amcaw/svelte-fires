@@ -11,6 +11,7 @@ import math
 import os
 import shutil
 import sys
+import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -25,6 +26,9 @@ EFFIS_LAYER = "ms:modis.ba.poly"
 FIRMS = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
 FIRMS_CHUNK = 5
 FIRMS_HISTORY_CHUNK = 5
+FIRMS_TRIES = 3
+FIRMS_TIMEOUT = 60
+FIRMS_BACKOFF = 10
 ACTIVE_DIR = DATA / "active"
 
 BBOX = (-12.0, 34.0, 34.0, 62.0)
@@ -60,6 +64,25 @@ def get_json(url: str, timeout: int = 300, tries: int = 3):
             if attempt == tries - 1:
                 sys.exit(f"request failed: {e}\n  {url[:160]}")
     return {}
+
+
+def get_csv(url: str, timeout: int = FIRMS_TIMEOUT, tries: int = FIRMS_TRIES) -> str:
+    for attempt in range(tries):
+        problem = ""
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                text = r.read().decode("utf-8", "replace")
+        except Exception as e:
+            problem = str(e)
+        else:
+            if text.lstrip().startswith("<") or "Invalid" in text[:200]:
+                problem = f"rejected — {' '.join(text[:140].split())}"
+            else:
+                return text
+        if attempt == tries - 1:
+            raise RuntimeError(problem)
+        time.sleep(FIRMS_BACKOFF * (attempt + 1))
+    return ""
 
 
 def round_coords(node, precision: int):
@@ -206,16 +229,15 @@ def fetch_firms(args):
     print(f"[firms] {args.sources} · last {args.hours} h (from {cutoff:%Y-%m-%d %H:%M} UTC)", flush=True)
 
     points, seen = [], set()
-    for source in [s.strip() for s in args.sources.split(",") if s.strip()]:
+    sources = [s.strip() for s in args.sources.split(",") if s.strip()]
+    failed = []
+    for source in sources:
         url = f"{FIRMS}/{key}/{source}/{bbox}/{days}/{start.isoformat()}"
         try:
-            with urllib.request.urlopen(url, timeout=180) as r:
-                text = r.read().decode("utf-8", "replace")
+            text = get_csv(url)
         except Exception as e:
-            print(f"  {source}: failed ({e})")
-            continue
-        if text.lstrip().startswith("<") or "Invalid" in text[:200]:
-            print(f"  {source}: rejected — {text[:140]}")
+            print(f"  {source}: failed ({e})", flush=True)
+            failed.append(source)
             continue
         rows = list(csv.DictReader(io.StringIO(text)))
         got = 0
@@ -252,6 +274,12 @@ def fetch_firms(args):
             got += 1
         print(f"  {source}: {len(rows)} rows → {got} kept")
 
+    if len(failed) == len(sources):
+        sys.exit(f"FIRMS injoignable sur toutes les sources ({', '.join(failed)}) "
+                 f"après {FIRMS_TRIES} tentatives — données actives laissées intactes")
+    if failed:
+        print(f"  {len(failed)}/{len(sources)} sources perdues : {', '.join(failed)}", flush=True)
+
     write("active.geojson", {"type": "FeatureCollection", "features": points})
     return {
         "activeHours": args.hours,
@@ -272,23 +300,23 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
     per_day: dict[str, list[list[float]]] = defaultdict(list)
     seen = set()
 
+    lost, dead = [], []
+
     for source in sources:
         kept = 0
+        chunks = 0
         cursor = since
         while cursor <= until:
             days = min(FIRMS_HISTORY_CHUNK, (until - cursor).days + 1)
             url = f"{FIRMS}/{key}/{source}/{bbox}/{days}/{cursor.isoformat()}"
             try:
-                with urllib.request.urlopen(url, timeout=300) as r:
-                    text = r.read().decode("utf-8", "replace")
+                text = get_csv(url)
             except Exception as e:
-                print(f"  {source} {cursor}: failed ({e})")
+                print(f"  {source} {cursor}: failed ({e})", flush=True)
+                lost.append(f"{source}@{cursor}")
                 cursor += dt.timedelta(days=days)
                 continue
-            if text.lstrip().startswith("<") or "Invalid" in text[:200]:
-                print(f"  {source} {cursor}: rejected — {text[:120]}")
-                cursor += dt.timedelta(days=days)
-                continue
+            chunks += 1
             for row in csv.DictReader(io.StringIO(text)):
                 try:
                     date = dt.date.fromisoformat(str(row["acq_date"])[:10])
@@ -317,6 +345,17 @@ def fetch_firms_history(args, since: dt.date, until: dt.date):
                 kept += 1
             cursor += dt.timedelta(days=days)
         print(f"  {source}: {kept} détections retenues")
+        if not chunks:
+            dead.append(source)
+
+    collected = sum(len(v) for v in per_day.values())
+    if dead or not collected:
+        detail = f"aucune réponse de {', '.join(dead)}" if dead else "aucune détection collectée"
+        existing = len(list(ACTIVE_DIR.glob("*.json"))) if ACTIVE_DIR.exists() else 0
+        sys.exit(f"historique FIRMS inutilisable ({detail}) — {existing} pas existants conservés")
+    if lost:
+        print(f"  {len(lost)} requêtes perdues malgré {FIRMS_TRIES} tentatives : "
+              f"{', '.join(lost[:6])}{'…' if len(lost) > 6 else ''}", flush=True)
 
     permanent, static = static_cells(per_day, args.static_days, args.static_spread)
     dropped = 0
