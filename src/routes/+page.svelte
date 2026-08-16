@@ -46,6 +46,8 @@
 	const stepsPerDay = $derived(meta?.smoke?.hours?.length ?? 1);
 	const day = $derived(meta && steps.length ? dayOffset(steps[stepIndex] ?? steps[0], meta.since) : 0);
 
+	const lastDate = $derived(steps.at(-1)?.slice(0, 10) ?? meta?.until ?? '');
+
 	const ranking = $derived((meta?.ranking ?? []).filter((r) => r.ha >= 100).slice(0, 10));
 	const top = $derived((meta?.top ?? []).slice(0, 10));
 
@@ -82,8 +84,8 @@
 		{#if meta}
 			<h1>
 				Surfaces brûlées et foyers actifs détectés par satellite du {dayMonth(meta.since)} au {dayMonth(
-					meta.until
-				)}&nbsp;{meta.until.slice(0, 4)} en Europe
+					lastDate
+				)}&nbsp;{lastDate.slice(0, 4)} en Europe
 			</h1>
 		{/if}
 	</header>
@@ -171,7 +173,8 @@
 			<p>
 				<strong>Surfaces brûlées</strong> — Copernicus EMS / EFFIS. Chaque périmètre est cartographié par satellite
 				(MODIS à 250&nbsp;m pour les grands incendies, Sentinel-2 à 20&nbsp;m en dessous). Les périmètres des
-				derniers jours sont provisoires et généralement revus à la hausse.
+				derniers jours sont provisoires et généralement revus à la hausse. Périmètres arrêtés au {longDate(meta.until)}, la
+				cartographie accusant deux à trois jours de retard sur les détections de foyers.
 			</p>
 			<p>
 				<strong>Feux actifs</strong> — NASA FIRMS, détections VIIRS (375&nbsp;m) et MODIS (1&nbsp;km), affichées
@@ -195,7 +198,7 @@
 				brûlées, elles, sont cumulées depuis le {dayMonth(meta.since)}.
 			</p>
 			<p class="credit">
-				Fond de carte CARTO Positron / OpenStreetMap · Données arrêtées au {longDate(meta.until)} · Mise à jour
+				Fond de carte CARTO Positron / OpenStreetMap · Données arrêtées au {longDate(lastDate)} · Mise à jour
 				{meta.built.slice(0, 10).split('-').reverse().join('/')}
 			</p>
 		</footer>

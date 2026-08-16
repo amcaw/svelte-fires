@@ -471,8 +471,10 @@ def main():
         meta.update(fetch_firms(args))
     if args.history:
         since = dt.date.fromisoformat(args.since)
-        until = dt.date.fromisoformat(meta.get("until") or args.since)
-        meta.update(fetch_firms_history(args, since, until))
+        burned_until = dt.date.fromisoformat(meta.get("until") or args.since)
+        until = (dt.date.fromisoformat(args.until) if args.until
+                 else dt.datetime.now(dt.timezone.utc).date())
+        meta.update(fetch_firms_history(args, since, max(until, burned_until)))
 
     meta["bounds"] = [[BBOX[0], BBOX[1]], [BBOX[2], BBOX[3]]]
     meta["sources"] = {
